@@ -24,7 +24,10 @@ export default class MakerNSIS extends MakerBase<MakerNSISConfig> {
       try {
         await sign({ ...this.config.codesign, appDirectory: outPath });
       } catch (error) {
-        console.error('Failed to codesign using @electron/windows-sign. Check your config and the output for details!', error);
+        console.error(
+          'Failed to codesign using @electron/windows-sign. Check your config and the output for details!',
+          error
+        );
         throw error;
       }
 
@@ -40,7 +43,7 @@ export default class MakerNSIS extends MakerBase<MakerNSISConfig> {
         process.env.CSC_KEY_PASSWORD = this.config.codesign.certificatePassword;
       }
     } else {
-      log('Skipping code signing, if you need it set \'config.codesign\'');
+      log("Skipping code signing, if you need it set 'config.codesign'");
     }
   }
 
@@ -50,13 +53,52 @@ export default class MakerNSIS extends MakerBase<MakerNSISConfig> {
   async createAppUpdateYml(options: MakerOptions, outPath: string) {
     if (!this.config.updater) return;
 
-    const ymlContents = await getAppUpdateYml({
-      url: this.config.updater.url,
-      name: options.appName,
-      channel: this.config.updater.channel,
-      updaterCacheDirName: this.config.updater.updaterCacheDirName,
-      publisherName: this.config.updater.publisherName
-    });
+    const provider = this.config.updater.provider || 'generic';
+    let ymlContents = '';
+
+    if (provider === 'github') {
+      // GitHub provider
+      if (!this.config.updater.owner || !this.config.updater.repo) {
+        throw new Error('GitHub provider requires "owner" and "repo" options');
+      }
+
+      const updaterCacheDirName =
+        this.config.updater.updaterCacheDirName || `${options.appName.toLowerCase()}-updater`;
+
+      ymlContents = `owner: ${this.config.updater.owner}
+repo: ${this.config.updater.repo}
+provider: github
+updaterCacheDirName: ${updaterCacheDirName}`;
+
+      if (this.config.updater.publisherName) {
+        const publisherNames = Array.isArray(this.config.updater.publisherName)
+          ? this.config.updater.publisherName
+          : [this.config.updater.publisherName];
+
+        ymlContents += '\npublisherName:';
+        publisherNames.forEach((name) => {
+          ymlContents += `\n  - ${name}`;
+        });
+      }
+
+      ymlContents += '\n';
+    } else {
+      // Generic provider (existing functionality)
+      if (!this.config.updater.url) {
+        throw new Error('Generic provider requires "url" option');
+      }
+
+      ymlContents = await getAppUpdateYml({
+        url: this.config.updater.url,
+        name: options.appName,
+        channel: this.config.updater.channel,
+        updaterCacheDirName: this.config.updater.updaterCacheDirName,
+        publisherName:
+          typeof this.config.updater.publisherName === 'string'
+            ? this.config.updater.publisherName
+            : undefined,
+      });
+    }
 
     log(`Writing app-update.yml to ${outPath}`, ymlContents);
     await fs.writeFile(path.join(outPath, 'resources', 'app-update.yml'), ymlContents, 'utf8');
@@ -72,7 +114,7 @@ export default class MakerNSIS extends MakerBase<MakerNSISConfig> {
     const ymlContents = await getChannelYml({
       installerPath,
       version,
-      platform: 'win32'
+      platform: 'win32',
     });
 
     log(`Writing ${channel}.yml to ${installerPath}`, ymlContents);
@@ -105,17 +147,18 @@ export default class MakerNSIS extends MakerBase<MakerNSISConfig> {
     const additionalConfig = this.config.getAppBuilderConfig
       ? await this.config.getAppBuilderConfig()
       : {};
-    const output = await buildForge({ dir: tmpPath }, {
-      win: [
-        `nsis:${options.targetArch}`
-      ],
-      config: {
-        directories: {
-          output: path.resolve(tmpPath, '..', 'make')
+    const output = await buildForge(
+      { dir: tmpPath },
+      {
+        win: [`nsis:${options.targetArch}`],
+        config: {
+          directories: {
+            output: path.resolve(tmpPath, '..', 'make'),
+          },
+          ...additionalConfig,
         },
-        ...additionalConfig
       }
-    });
+    );
 
     // Move the output to the actual output folder, app-builder-lib might get it wrong
     log('Received output files', output);

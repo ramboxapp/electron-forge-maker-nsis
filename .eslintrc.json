@@ -12,9 +12,11 @@
       "error",
       "always"
     ],
+	"quotes": "warn",
     "no-var": "error",
     "no-unused-vars": "off",
     "no-global-assign": "off",
+	"comma-dangle": "off",
     "space-before-function-paren": "off",
     "guard-for-in": "error",
     "@typescript-eslint/no-unused-vars": [

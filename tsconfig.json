@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "esnext",
     "target": "es2017",
     "lib": [
       "es2017"
     ],
+	"forceConsistentCasingInFileNames": true,
     "sourceMap": true,
     "strict": true,
     "outDir": "dist/cjs",
@@ -12,7 +13,7 @@
       "node",
     ],
     "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "declaration": true,
     "esModuleInterop": true,
     "skipLibCheck": true
